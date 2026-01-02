@@ -9,17 +9,18 @@ module.exports = function (grunt) {
   const os = grunt.option('os') || process.env.PCKG_OS_NAME || ''
   const platform = grunt.option('platform') || process.env.PCKG_CPU_ARCH || ''
   const node = grunt.option('node') || process.env.nodejs_version || process.env.PCKG_NODE_VERSION || ''
+  const pkg = grunt.file.readJSON('package.json')
 
   grunt.initConfig({
-    pkg: grunt.file.readJSON('package.json'),
+    pkg,
 
     replace_json: {
       manifest: {
         src: 'package.json',
         changes: {
-          'engines.node': (node || '<%= pkg.engines.node %>'),
-          os: (os ? [os] : '<%= pkg.os %>'),
-          cpu: (platform ? [platform] : '<%= pkg.cpu %>')
+          'engines.node': (node || pkg.engines.node),
+          os: (os ? [os] : pkg.os),
+          cpu: (platform ? [platform] : pkg.cpu)
         }
       }
     },
@@ -84,7 +85,28 @@ module.exports = function (grunt) {
     })
   })
 
-  grunt.loadNpmTasks('grunt-replace-json')
+  grunt.registerMultiTask('replace_json', 'Update JSON file', function () {
+    const fs = require('node:fs')
+    const src = this.data.src
+    const changes = this.data.changes || {}
+    const json = JSON.parse(fs.readFileSync(src, 'utf8'))
+
+    for (const [path, value] of Object.entries(changes)) {
+      const keys = path.split('.')
+      let cursor = json
+      for (let i = 0; i < keys.length - 1; i++) {
+        const key = keys[i]
+        if (cursor[key] == null || typeof cursor[key] !== 'object') {
+          cursor[key] = {}
+        }
+        cursor = cursor[key]
+      }
+      cursor[keys[keys.length - 1]] = value
+    }
+
+    fs.writeFileSync(src, JSON.stringify(json, null, 2) + '\n')
+  })
+
   grunt.loadNpmTasks('grunt-contrib-compress')
   grunt.registerTask('package', ['replace_json:manifest', 'compress:pckg', 'checksum'])
 }

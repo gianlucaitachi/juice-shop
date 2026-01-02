@@ -25,12 +25,25 @@ import cookieParser from 'cookie-parser'
 import * as Prometheus from 'prom-client'
 import swaggerUi from 'swagger-ui-express'
 import featurePolicy from 'feature-policy'
-import { IpFilter } from 'express-ipfilter'
 // @ts-expect-error FIXME due to non-existing type definitions for express-security.txt
 import securityTxt from 'express-security.txt'
 import { rateLimit } from 'express-rate-limit'
 import { getStream } from 'file-stream-rotator'
 import type { Request, Response, NextFunction } from 'express'
+
+const normalizeIp = (ip: string) => ip.startsWith('::ffff:') ? ip.slice(7) : ip
+
+const ipAllowlist = (allowed: string[]) => {
+  const allowlist = new Set(allowed.map(normalizeIp))
+  return (req: Request, res: Response, next: NextFunction) => {
+    const ip = normalizeIp(req.ip || req.socket.remoteAddress || '')
+    if (allowlist.has(ip)) {
+      next()
+      return
+    }
+    res.status(403).json({ error: 'Access denied' })
+  }
+}
 
 import { sequelize } from './models'
 import { UserModel } from './models/user'
@@ -422,7 +435,7 @@ restoreOverwrittenFilesWithOriginals().then(() => {
   /* Accounting users are allowed to check and update quantities */
   app.delete('/api/Quantitys/:id', security.denyAll())
   app.post('/api/Quantitys', security.denyAll())
-  app.use('/api/Quantitys/:id', security.isAccounting(), IpFilter(['123.456.789'], { mode: 'allow' }))
+  app.use('/api/Quantitys/:id', security.isAccounting(), ipAllowlist(['123.456.789']))
   /* Feedbacks: Do not allow changes of existing feedback */
   app.put('/api/Feedbacks/:id', security.denyAll())
   /* PrivacyRequests: Only allowed for authenticated users */
