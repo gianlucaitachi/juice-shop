@@ -23,7 +23,11 @@ import { challenges } from '../data/datacache'
 let trainingFile = config.get<string>('application.chatBot.trainingData')
 let testCommand: string
 export let bot: Bot | null = null
-const BotConstructor = (BotModule as any).default ?? (BotModule as any).Bot ?? BotModule
+const BotConstructor =
+  (BotModule as any).Bot ??
+  (BotModule as any).default?.Bot ??
+  (BotModule as any).default ??
+  BotModule
 
 export async function initializeChatbot () {
   if (utils.isUrl(trainingFile)) {
@@ -42,6 +46,10 @@ export async function initializeChatbot () {
   validateChatBot(JSON.parse(trainingSet))
 
   testCommand = JSON.parse(trainingSet).data[0].utterances[0]
+  if (typeof BotConstructor !== 'function') {
+    logger.error('Chatbot module export is not a constructor')
+    return
+  }
   bot = new BotConstructor(
     config.get('application.chatBot.name'),
     config.get('application.chatBot.greeting'),
