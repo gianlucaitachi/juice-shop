@@ -13,7 +13,8 @@ import logger from '../lib/logger'
 import config from 'config'
 import * as utils from '../lib/utils'
 import { isString } from 'lodash'
-import Bot from 'juicy-chat-bot'
+import type Bot from 'juicy-chat-bot'
+import * as BotModule from 'juicy-chat-bot'
 import validateChatBot from '../lib/startup/validateChatBot'
 import * as security from '../lib/insecurity'
 import * as botUtils from '../lib/botUtils'
@@ -22,6 +23,7 @@ import { challenges } from '../data/datacache'
 let trainingFile = config.get<string>('application.chatBot.trainingData')
 let testCommand: string
 export let bot: Bot | null = null
+const BotConstructor = (BotModule as any).default ?? (BotModule as any).Bot ?? BotModule
 
 export async function initializeChatbot () {
   if (utils.isUrl(trainingFile)) {
@@ -40,7 +42,12 @@ export async function initializeChatbot () {
   validateChatBot(JSON.parse(trainingSet))
 
   testCommand = JSON.parse(trainingSet).data[0].utterances[0]
-  bot = new Bot(config.get('application.chatBot.name'), config.get('application.chatBot.greeting'), trainingSet, config.get('application.chatBot.defaultResponse'))
+  bot = new BotConstructor(
+    config.get('application.chatBot.name'),
+    config.get('application.chatBot.greeting'),
+    trainingSet,
+    config.get('application.chatBot.defaultResponse')
+  )
   return bot.train()
 }
 
