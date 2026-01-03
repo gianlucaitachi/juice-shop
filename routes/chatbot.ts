@@ -13,7 +13,7 @@ import logger from '../lib/logger'
 import config from 'config'
 import * as utils from '../lib/utils'
 import { isString } from 'lodash'
-import type Bot from 'juicy-chat-bot'
+import type { Bot as BotType } from 'juicy-chat-bot'
 import * as BotModule from 'juicy-chat-bot'
 import validateChatBot from '../lib/startup/validateChatBot'
 import * as security from '../lib/insecurity'
@@ -22,7 +22,7 @@ import { challenges } from '../data/datacache'
 
 let trainingFile = config.get<string>('application.chatBot.trainingData')
 let testCommand: string
-export let bot: Bot | null = null
+export let bot: BotType | null = null
 const BotConstructor =
   (BotModule as any).Bot ??
   (BotModule as any).default?.Bot ??
@@ -50,13 +50,14 @@ export async function initializeChatbot () {
     logger.error('Chatbot module export is not a constructor')
     return
   }
-  bot = new BotConstructor(
+  const createdBot = new BotConstructor(
     config.get('application.chatBot.name'),
     config.get('application.chatBot.greeting'),
     trainingSet,
     config.get('application.chatBot.defaultResponse')
   )
-  return bot.train()
+  bot = createdBot
+  return createdBot.train()
 }
 
 void initializeChatbot()
